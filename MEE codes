@@ -1,5 +1,5 @@
 ##The code used in the article(MEE)###
-##The only difference from the functions in the forestat package is the drawing function######
+##The only difference from the functions in the forestat package is the drawing functions######
 library("forestat")
 library("openxlsx")
 library("dplyr")
