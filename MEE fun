@@ -1,0 +1,548 @@
+##The code used in the article(MEE)###
+##The only difference from the functions in the forestat package is the drawing function######
+library("forestat")
+library("openxlsx")
+library("dplyr")
+library("nlme")
+library("ggplot2")
+library("tidyr")
+
+###---------Type 1----------#######
+data_type1<-read.xlsx("C:\\Users\\dell\\Desktop\\Type_1.xlsx",sheet = 1)
+forestData_type1 <- class.plot(data_type1, model = "Richards",
+                         interval = 5, number = 5, maxiter=1000,
+                         H_start=c(a=23.0,b=0.01,c=0.3),
+                         BA_start = c(a=50,b=0.001,c=10.0,d=0.1),
+                         Bio_start=c(a=260,b=0.00001,c=10,d=0.1))
+summary(forestData_type1)
+
+# Parameters of model
+Hmodel_Parameters <- forestData_type1$output$H
+Hmodel_Parameters
+BAmodel_Parameters <- forestData_type1$output$BA
+BAmodel_Parameters
+BIOmodel_Parameters <- forestData_type1$output$Bio
+BIOmodel_Parameters
+
+###-----Draw figure---------########
+# Using plot functions within the Forestat package or by invoking plotted results.
+# plot(forestData,model.type="H",
+#      plot.type="Scatter_Curve",
+#      xlab="Year",ylab="Height(m)",legend.lab="Site Class",
+#      title="")
+Colors1 <-c("#E41A1C","#377EB8","#4DAF4A","#984EA3","#FF7F00",
+"#E41A1C","#377EB8","#4DAF4A","#984EA3","#FF7F00")
+#---Tree-height classification of type1
+Haa <- as.numeric(coef(forestData_type1$Hmodel$model)[,1])
+Hbb <- as.numeric(coef(forestData_type1$Hmodel$model)[,2])
+Hcc <- as.numeric(coef(forestData_type1$Hmodel$model)[,3])
+esti_H<-function(TH,g,Haa,Hbb,Hcc){
+  H<-Haa[g]*(1-exp(-Hbb[g]*TH))^Hcc[g]+1.3
+  return (H)
+}
+TH<-seq(min(forestData_type1$Input$AGE),max(forestData_type1$Input$AGE,0.5))
+H1<-esti_H(TH,1,Haa,Hbb,Hcc)
+H2<-esti_H(TH,2,Haa,Hbb,Hcc)
+H3<-esti_H(TH,3,Haa,Hbb,Hcc)
+H4<-esti_H(TH,4,Haa,Hbb,Hcc)
+H5<-esti_H(TH,5,Haa,Hbb,Hcc)
+Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5) %>%
+  pivot_longer(cols = c(H1,H2,H3,H4,H5), names_to = "LASTGROUP", values_to = "H")%>%
+  select(TH,LASTGROUP,H)
+Hdata2 <- forestData_type1$Input
+P_1_H <- ggplot(Hdata2, aes(x = AGE, y = H, color=factor(LASTGROUP))) +
+  geom_point(size = 1, show.legend = F) + 
+  geom_line(data = Hdata1,aes(x = TH, y = H, group = LASTGROUP), 
+            size=1,show.legend = F)+
+  labs(x = "Age(year)", y = "Height(m)",color = "Site Class") +
+  scale_color_manual(values = colors1)+
+  theme_bw()
+#---BA_model Richards of type1
+esti_BA<-function(TBA,g,BAaa,BAbb,BAcc,BAdd){
+  BA<-BAaa[g]*(1-exp(-BAbb[g]*(S/1000)^BAcc[g]*TBA))^BAdd[g]
+  return (BA)
+}
+S <- 1500
+BAaa <- as.numeric(coef(forestData_type1$BAmodel$model)[,1])
+BAbb <- as.numeric(coef(forestData_type1$BAmodel$model)[,2])
+BAcc <- as.numeric(coef(forestData_type1$BAmodel$model)[,3])
+BAdd <- as.numeric(coef(forestData_type1$BAmodel$model)[,4])
+TBA<-seq(min(forestData_type1$Input$AGE),max(forestData_type1$Input$AGE,0.5))
+BA1<-esti_BA(TBA,1,BAaa,BAbb,BAcc,BAdd)
+BA2<-esti_BA(TBA,2,BAaa,BAbb,BAcc,BAdd)
+BA3<-esti_BA(TBA,3,BAaa,BAbb,BAcc,BAdd)
+BA4<-esti_BA(TBA,4,BAaa,BAbb,BAcc,BAdd)
+BA5<-esti_BA(TBA,5,BAaa,BAbb,BAcc,BAdd)
+BAdata1 <- data.frame(TBA=TBA,BA1=BA1,BA2=BA2,BA3=BA3,BA4=BA4,BA5=BA5) %>%
+  pivot_longer(cols = c(BA1,BA2,BA3,BA4,BA5), names_to = "LASTGROUP", values_to = "BA")%>%
+  select(TBA,LASTGROUP,BA)
+P_1_BA <- ggplot()+geom_line(data = BAdata1,aes(x = TBA, y = BA, color = LASTGROUP), 
+                   size=1,show.legend = F)+
+  labs(x = "Age(Year)", y = expression(paste("Basal area at breast-height( ",m^2,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors1)+
+  theme_bw()
+
+#---Bio_model_Richards of type1
+esti_Bio<-function(TBIO, g,BIOaa,BIObb,BIOcc,BIOdd){
+  Bio<-BIOaa[g]*(1-exp(-BIObb[g]*(S/1000)^BIOcc[g]*TBIO))^BIOdd[g]
+  return (Bio)
+}
+S <- 1500
+BIOaa <- as.numeric(coef(forestData_type1$Biomodel$model)[,1])
+BIObb <- as.numeric(coef(forestData_type1$Biomodel$model)[,2])
+BIOcc <- as.numeric(coef(forestData_type1$Biomodel$model)[,3])
+BIOdd <- as.numeric(coef(forestData_type1$Biomodel$model)[,4])
+TBIO<-seq(min(forestData_type1$Input$AGE),max(forestData_type1$Input$AGE,0.5))
+BIO1<-esti_Bio(TBIO,1,BIOaa,BIObb,BIOcc,BIOdd)
+BIO2<-esti_Bio(TBIO,2,BIOaa,BIObb,BIOcc,BIOdd)
+BIO3<-esti_Bio(TBIO,3,BIOaa,BIObb,BIOcc,BIOdd)
+BIO4<-esti_Bio(TBIO,4,BIOaa,BIObb,BIOcc,BIOdd)
+BIO5<-esti_Bio(TBIO,5,BIOaa,BIObb,BIOcc,BIOdd)
+TBIO1 <- data.frame(TBIO=TBIO,BIO1=BIO1,BIO2=BIO2,BIO3=BIO3,BIO4=BIO4,BIO5=BIO5) %>%
+  pivot_longer(cols = c(BIO1,BIO2,BIO3,BIO4,BIO5), names_to = "LASTGROUP", values_to = "BIO")%>%
+  select(TBIO,LASTGROUP,BIO)
+P_1_BIO <- ggplot()+geom_line(data = TBIO1,aes(x = TBIO, y = BIO, color = LASTGROUP), 
+                   size=1,show.legend = TRUE)+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors1)+
+  theme_bw()
+max(forestData_type1$Input$AGE)
+min(forestData_type1$Input$AGE)
+
+# Calculated potential productivity
+forestData_type1 <- potential.productivity(forestData_type1, code=1,
+                                           age.min=3,age.max=79,
+                                           left=0.05, right=100,
+                                           e=1e-05, maxiter = 50) 
+# Calculated realized productivity
+forestData_type1 <- realized.productivity(forestData_type1, left=0.05, right=100)
+## Calculated potential space
+potential_data_type1 <- forestData_type1$potential.productivity
+potential_data_type1$jion_value <- paste0(potential_data_type1$LASTGROUP, "_", potential_data_type1$AGE)
+reality_data_type1 <- forestData_type1$realized.productivity
+reality_data_type1$jion_value <- paste0(forestData_type1$realized.productivity$LASTGROUP, "_", reality_data_type21AGE)
+forestData_last1 <- inner_join(reality_data_type1,potential_data_type1, by="jion_value")
+forestData_last1$potential <- forestData_last1$Max_MI-forestData_last1$VI
+forestData_last1 <- rename(forestData_last1,"AGE"="AGE.x","LASTGROUP"="LASTGROUP.x")
+
+#Figure 2 of type1
+dataT1 <- forestData_last1%>%select(AGE,Max_MI,VI,potential,LASTGROUP)#%>%filter(potential>0)
+T1_ALLBIO <- dataT1%>%pivot_longer(cols = c(Max_MI,VI,potential), names_to = "LASTGROUP2", values_to = "BIO")
+PT1_ALLBIO <- ggplot() +
+  geom_line(data=T1_ALLBIO,aes(x = AGE, y = BIO, color=LASTGROUP2),size=0.8,show.legend = T)+
+  geom_point(data = filter(T1_ALLBIO,LASTGROUP2!="Max_MI"),
+             aes(x = AGE, y = BIO, color=LASTGROUP2),size =0.9, show.legend = F) +
+  facet_wrap(~LASTGROUP,ncol=5,labeller = labeller(LASTGROUP=c("1"= "Site Class 1", "2"= "Site Class 2", "3" ="Site Class 3", "4" ="Site Class 4",  "5" ="Site Class 5")))+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = " ")+
+  scale_color_manual(values = c("#E41A1C","#4DAF4A","#377EB8" ),
+                     labels = c("Potential productivity"," Promotion space","Realized productivity"))+
+  theme_bw()
+
+
+###---------Type 2----------#######
+data_type2<-read.xlsx("C:\\Users\\dell\\Desktop\\Type_2.xlsx",sheet = 1)
+forestData_type2 <- class.plot(data_type2, model = "Richards",
+                               interval = 5, number = 5, maxiter=1000,
+                               H_start=c(a=9,b=0.04,c=0.3),
+                               BA_start = c(a=4.996e+01,b=1.017e-04,c=1.136e+01,d=8.892e-02),
+                               Bio_start=c(a=450, b=1.080e-06, c=1.058e+01, d=9.469e-02))
+summary(forestData_type2)
+# Parameters of model 
+Hmodel_Parameters <- forestData_type2$output$H
+Hmodel_Parameters
+BAmodel_Parameters <- forestData_type2$output$BA
+BAmodel_Parameters
+BIOmodel_Parameters <- forestData_type2$output$Bio
+BIOmodel_Parameters
+
+#---Tree-height classification of type2 in figure1
+Haa <- as.numeric(coef(forestData_type2$Hmodel$model)[,1])
+Hbb <- as.numeric(coef(forestData_type2$Hmodel$model)[,2])
+Hcc <- as.numeric(coef(forestData_type2$Hmodel$model)[,3])
+esti_H<-function(TH,g,Haa,Hbb,Hcc){
+  H<-Haa[g]*(1-exp(-Hbb[g]*TH))^Hcc[g]+1.3
+  return (H)
+}
+TH<-seq(min(forestData_type2$Input$AGE),max(forestData_type2$Input$AGE,0.5))
+H1<-esti_H(TH,1,Haa,Hbb,Hcc)
+H2<-esti_H(TH,2,Haa,Hbb,Hcc)
+H3<-esti_H(TH,3,Haa,Hbb,Hcc)
+H4<-esti_H(TH,4,Haa,Hbb,Hcc)
+H5<-esti_H(TH,5,Haa,Hbb,Hcc)
+Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5) %>%
+  pivot_longer(cols = c(H1,H2,H3,H4,H5), names_to = "LASTGROUP", values_to = "H")%>%
+  select(TH,LASTGROUP,H)
+Hdata2 <- forestData_type2$Input
+P_2_H <- ggplot(Hdata2, aes(x = AGE, y = H, color=factor(LASTGROUP))) +
+  geom_point(size = 1, show.legend = F) + 
+  geom_line(data = Hdata1,aes(x = TH, y = H, group = LASTGROUP), 
+            size=1,show.legend = F)+
+  labs(x = "Age(year)", y = "Height(m)",color = "Site Class") +
+  scale_color_manual(values = colors1)+
+  theme_bw()
+
+#---BA_model Richards of type2 in figure1
+esti_BA<-function(TBA,g,BAaa,BAbb,BAcc,BAdd){
+  BA<-BAaa[g]*(1-exp(-BAbb[g]*(S/1000)^BAcc[g]*TBA))^BAdd[g]
+  return (BA)
+}
+S <- 1500
+BAaa <- as.numeric(coef(forestData_type2$BAmodel$model)[,1])
+BAbb <- as.numeric(coef(forestData_type2$BAmodel$model)[,2])
+BAcc <- as.numeric(coef(forestData_type2$BAmodel$model)[,3])
+BAdd <- as.numeric(coef(forestData_type2$BAmodel$model)[,4])
+TBA<-seq(min(forestData_type2$Input$AGE),max(forestData_type2$Input$AGE,0.5))
+BA1<-esti_BA(TBA,1,BAaa,BAbb,BAcc,BAdd)
+BA2<-esti_BA(TBA,2,BAaa,BAbb,BAcc,BAdd)
+BA3<-esti_BA(TBA,3,BAaa,BAbb,BAcc,BAdd)
+BA4<-esti_BA(TBA,4,BAaa,BAbb,BAcc,BAdd)
+BA5<-esti_BA(TBA,5,BAaa,BAbb,BAcc,BAdd)
+BAdata1 <- data.frame(TBA=TBA,BA1=BA1,BA2=BA2,BA3=BA3,BA4=BA4,BA5=BA5) %>%
+  pivot_longer(cols = c(BA1,BA2,BA3,BA4,BA5), names_to = "LASTGROUP", values_to = "BA")%>%
+  select(TBA,LASTGROUP,BA)
+P_2_BA <- ggplot()+geom_line(data = BAdata1,aes(x = TBA, y = BA, color = LASTGROUP), 
+                             size=1,show.legend = F)+
+  labs(x = "Age(Year)", y = expression(paste("Basal area at breast-height( ",m^2,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors1)+
+  theme_bw()
+
+#---Bio_model Richards of type2 in figure1
+esti_Bio<-function(TBIO, g,BIOaa,BIObb,BIOcc,BIOdd){
+  Bio<-BIOaa[g]*(1-exp(-BIObb[g]*(S/1000)^BIOcc[g]*TBIO))^BIOdd[g]
+  return (Bio)
+}
+S <- 1500
+BIOaa <- as.numeric(coef(forestData_type2$Biomodel$model)[,1])
+BIObb <- as.numeric(coef(forestData_type2$Biomodel$model)[,2])
+BIOcc <- as.numeric(coef(forestData_type2$Biomodel$model)[,3])
+BIOdd <- as.numeric(coef(forestData_type2$Biomodel$model)[,4])
+TBIO<-seq(min(forestData_type2$Input$AGE),max(forestData_type2$Input$AGE,0.5))
+BIO1<-esti_Bio(TBIO,1,BIOaa,BIObb,BIOcc,BIOdd)
+BIO2<-esti_Bio(TBIO,2,BIOaa,BIObb,BIOcc,BIOdd)
+BIO3<-esti_Bio(TBIO,3,BIOaa,BIObb,BIOcc,BIOdd)
+BIO4<-esti_Bio(TBIO,4,BIOaa,BIObb,BIOcc,BIOdd)
+BIO5<-esti_Bio(TBIO,5,BIOaa,BIObb,BIOcc,BIOdd)
+
+TBIO1 <- data.frame(TBIO=TBIO,BIO1=BIO1,BIO2=BIO2,BIO3=BIO3,BIO4=BIO4,BIO5=BIO5) %>%
+  pivot_longer(cols = c(BIO1,BIO2,BIO3,BIO4,BIO5), names_to = "LASTGROUP", values_to = "BIO")%>%
+  select(TBIO,LASTGROUP,BIO)
+P_2_BIO <- ggplot()+geom_line(data = TBIO1,aes(x = TBIO, y = BIO, color = LASTGROUP), 
+                              size=1,show.legend = TRUE)+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors1)+
+  theme_bw()
+dev.new()
+require(cowplot)
+plot_grid(P_1_H,P_1_BA,P_1_BIO, P_2_H,P_2_BA,P_2_BIO,
+          rel_widths = c(1, 1, 1.3),nrow =2,ncol=3) #Figure 1
+max(forestData_type2$Input$AGE)
+min(forestData_type2$Input$AGE)
+
+# Calculated potential productivity of type2
+forestData_type2 <- potential.productivity(forestData_type2, code=1,
+                                           age.min=3,age.max=79,
+                                           left=0.05, right=100,
+                                           e=1e-05, maxiter = 50) 
+# Calculated realized productivity of type2
+forestData_type2 <- realized.productivity(forestData_type2, left=0.05, right=100)
+## Calculated potential space of type2
+potential_data_type2 <- forestData_type2$potential.productivity
+potential_data_type2$jion_value <- paste0(potential_data_type2$LASTGROUP, "_", potential_data_type2$AGE)
+reality_data_type2 <- forestData_type2$realized.productivity
+reality_data_type2$jion_value <- paste0(forestData_type2$realized.productivity$LASTGROUP, "_", reality_data_type2$AGE)
+forestData_last2 <- inner_join(reality_data_type2,potential_data_type2, by="jion_value")
+forestData_last2$potential <- forestData_last2$Max_MI-forestData_last2$VI
+forestData_last2 <- rename(forestData_last2,"AGE"="AGE.x","LASTGROUP"="LASTGROUP.x")
+
+#Figure 2 of type2
+dataT2 <- forestData_last2%>%select(AGE,Max_MI,VI,potential,LASTGROUP)
+T2_ALLBIO <- dataT2%>%
+  pivot_longer(cols = c(Max_MI,VI,potential), names_to = "LASTGROUP2", values_to = "BIO")
+PT2_ALLBIO <- ggplot() +
+  geom_line(data=T2_ALLBIO,aes(x = AGE, y = BIO, color=LASTGROUP2),size=0.8,show.legend = T)+
+  geom_point(data = filter(T2_ALLBIO,LASTGROUP2!="Max_MI"),
+             aes(x = AGE, y = BIO, color=LASTGROUP2),size =0.9, show.legend = F) +
+  facet_wrap(~LASTGROUP,ncol=5,labeller = labeller(LASTGROUP=c("1"= "Site Class 1", "2"= "Site Class 2", "3" ="Site Class 3", "4" ="Site Class 4", "5" ="Site Class 5")))+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = " ")+
+  scale_color_manual(c("#E41A1C","#4DAF4A","#377EB8" ),
+                     labels = c("Promotion productivity","Potential space","Realized productivity"))+
+  # scale_color_discrete(labels = c("Potential productivity","Promotion space", "Realized productivity"))
+  theme_bw()
+dev.new()
+require(cowplot)
+plot_grid(PT1_ALLBIO,PT2_ALLBIO,nrow =2) #Figure 2
+
+
+###---------Type 3----------#######
+data_type3<-read.xlsx("C:\\Users\\dell\\Desktop\\ Type_3.xlsx",sheet = 1)
+forestData_type3 <- class.plot(data_type3, model = "Richards",
+                               interval = 5, number = 5, maxiter=1000,
+                               H_start=c(a=21.01,b=0.013,c=1.12),
+                               BA_start = c(a=5.978e+01,b=3.763e-05,c=9.711,d=0.1077),
+                               Bio_start=c(a=4.554e+02,b=1.697e-03,c=3,d=0.4))
+summary(forestData_type3)
+# Parameters of model
+T3_Hmodel_Parameters <- forestData_type3$output$H
+T3_Hmodel_Parameters
+T3_BAmodel_Parameters <- forestData_type3$output$BA
+T3_BAmodel_Parameters
+T3_BIOmodel_Parameters <- forestData_type3$output$Bio
+T3_BIOmodel_Parameters
+
+#---Tree-height classification of type3
+Haa <- as.numeric(coef(forestData_type3$Hmodel$model)[,1])
+Hbb <- as.numeric(coef(forestData_type3$Hmodel$model)[,2])
+Hcc <- as.numeric(coef(forestData_type3$Hmodel$model)[,3])
+esti_H<-function(TH,g,Haa,Hbb,Hcc){
+  H<-Haa[g]*(1-exp(-Hbb[g]*TH))^Hcc[g]+1.3
+  return (H)
+}
+TH<-seq(min(forestData_type3$Input$AGE),max(forestData_type3$Input$AGE,0.5))
+H1<-esti_H(TH,1,Haa,Hbb,Hcc)
+H2<-esti_H(TH,2,Haa,Hbb,Hcc)
+H3<-esti_H(TH,3,Haa,Hbb,Hcc)
+H4<-esti_H(TH,4,Haa,Hbb,Hcc)
+H5<-esti_H(TH,5,Haa,Hbb,Hcc)
+# Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5)
+Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5) %>%
+  pivot_longer(cols = c(H1,H2,H3,H4,H5), names_to = "LASTGROUP", values_to = "H")%>%
+  select(TH,LASTGROUP,H)
+# dev.new()
+Hdata2 <- forestData_type3$Input
+P_3_H <- ggplot(Hdata2, aes(x = AGE, y = H, color=factor(LASTGROUP))) +
+  geom_point(size = 1.2, show.legend = F) + 
+  geom_line(data = Hdata1,aes(x = TH, y = H, group = LASTGROUP), 
+            size=1,show.legend = F)+
+  labs(x = "Age(year)", y = "Height(m)",color = "Site Class") +
+  scale_color_manual(values =colors2)+
+  theme_bw()
+
+#---BA MODEL of type3
+esti_BA<-function(TBA,g,BAaa,BAbb,BAcc,BAdd){
+  BA<-BAaa[g]*(1-exp(-BAbb[g]*(S/1000)^BAcc[g]*TBA))^BAdd[g]
+  return (BA)
+}
+S <- 1500
+BAaa <- as.numeric(coef(forestData_type3$BAmodel$model)[,1])
+BAbb <- as.numeric(coef(forestData_type3$BAmodel$model)[,2])
+BAcc <- as.numeric(coef(forestData_type3$BAmodel$model)[,3])
+BAdd <- as.numeric(coef(forestData_type3$BAmodel$model)[,4])
+TBA<-seq(min(forestData_type3$Input$AGE),max(forestData_type3$Input$AGE,0.5))
+BA1<-esti_BA(TBA,1,BAaa,BAbb,BAcc,BAdd)
+BA2<-esti_BA(TBA,2,BAaa,BAbb,BAcc,BAdd)
+BA3<-esti_BA(TBA,3,BAaa,BAbb,BAcc,BAdd)
+BA4<-esti_BA(TBA,4,BAaa,BAbb,BAcc,BAdd)
+BA5<-esti_BA(TBA,5,BAaa,BAbb,BAcc,BAdd)
+Tdata1 <- data.frame(TH=TH,BA1=BA1,BA2=BA2,BA3=BA3,BA4=BA4,BA5=BA5)
+BAdata1 <- data.frame(TBA=TBA,BA1=BA1,BA2=BA2,BA3=BA3,BA4=BA4,BA5=BA5) %>%
+  pivot_longer(cols = c(BA1,BA2,BA3,BA4,BA5), names_to = "LASTGROUP", values_to = "BA")%>%
+  select(TBA,LASTGROUP,BA)
+# dev.new()
+P_3_BA <- ggplot()+geom_line(data = BAdata1,aes(x = TBA, y = BA, color = LASTGROUP), 
+                             size=1,show.legend = F)+
+  labs(x = "Age(Year)", y = expression(paste("Basal area at breast-height( ",m^2,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors2,labels = c("1","2","3","4","5"))+
+  theme_bw()
+
+#---Bio_model Richards of type3
+esti_Bio<-function(TBIO, g,BIOaa,BIObb,BIOcc,BIOdd){
+  Bio<-BIOaa[g]*(1-exp(-BIObb[g]*(S/1000)^BIOcc[g]*TBIO))^BIOdd[g]
+  return (Bio)
+}
+S <- 1500
+BIOaa <- as.numeric(coef(forestData_type3$Biomodel$model)[,1])
+BIObb <- as.numeric(coef(forestData_type3$Biomodel$model)[,2])
+BIOcc <- as.numeric(coef(forestData_type3$Biomodel$model)[,3])
+BIOdd <- as.numeric(coef(forestData_type3$Biomodel$model)[,4])
+TBIO<-seq(min(forestData_type3$Input$AGE),max(forestData_type3$Input$AGE,0.5))
+BIO1<-esti_Bio(TBIO,1,BIOaa,BIObb,BIOcc,BIOdd)
+BIO2<-esti_Bio(TBIO,2,BIOaa,BIObb,BIOcc,BIOdd)
+BIO3<-esti_Bio(TBIO,3,BIOaa,BIObb,BIOcc,BIOdd)
+BIO4<-esti_Bio(TBIO,4,BIOaa,BIObb,BIOcc,BIOdd)
+BIO5<-esti_Bio(TBIO,5,BIOaa,BIObb,BIOcc,BIOdd)
+
+TBIO1 <- data.frame(TBIO=TBIO,BIO1=BIO1,BIO2=BIO2,BIO3=BIO3,BIO4=BIO4,BIO5=BIO5) %>%
+  pivot_longer(cols = c(BIO1,BIO2,BIO3,BIO4,BIO5), names_to = "LASTGROUP", values_to = "BIO")%>%
+  select(TBIO,LASTGROUP,BIO)
+P_3_BIO <- ggplot()+geom_line(data = TBIO1,aes(x = TBIO, y = BIO, color = LASTGROUP), 
+                              size=1,show.legend = TRUE)+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors2,labels = c("1","2","3","4","5"))+
+  # scale_color_brewer(palette = "Set1")+
+  theme_bw()
+
+# Calculated potential productivity of type3
+forestData_type3 <- potential.productivity(forestData_type3, code=1,
+                                           age.min=5,age.max=45,
+                                           left=0.05, right=100,
+                                           e=1e-05, maxiter = 50) 
+# Calculated potential productivity of type3
+forestData_type3 <- realized.productivity(forestData_type3, left=0.05, right=100)
+## Calculated potential space of type3
+potential_data_type3 <- forestData_type3$potential.productivity
+potential_data_type3$jion_value <- paste0(potential_data_type3$LASTGROUP, "_", potential_data_type3$AGE)
+reality_data_type3 <- forestData_type3$realized.productivity
+reality_data_type3$jion_value <- paste0(forestData_type3$realized.productivity$LASTGROUP, "_", reality_data_type3$AGE)
+
+forestData_last3 <- inner_join(reality_data_type3,potential_data_type3, by="jion_value")
+forestData_last3$potential <- forestData_last3$Max_MI-forestData_last3$VI
+forestData_last3 <- rename(forestData_last3,"AGE"="AGE.x","LASTGROUP"="LASTGROUP.x")
+
+## #Figure 4 of type3
+dataT3 <- select(forestData_last3,AGE,Max_MI,VI,potential,LASTGROUP)
+T3_ALLBIO <- dataT3%>%pivot_longer(cols = c(Max_MI,VI,potential), names_to = "LASTGROUP2", values_to = "BIO")
+PT3_ALLBIO <- ggplot() +
+  geom_line(data=T3_ALLBIO,aes(x = AGE, y = BIO, color=LASTGROUP2),size=1.1,show.legend = T)+
+  geom_line(data=filter(T3_ALLBIO,LASTGROUP2=="Max_MI"),aes(x = AGE, y = BIO, color=LASTGROUP2),size=1.4)+
+  geom_point(data = filter(T3_ALLBIO,LASTGROUP2!="Max_MI"),
+             aes(x = AGE, y = BIO, color=LASTGROUP2),size =1.1, show.legend = F) +
+  facet_wrap(~LASTGROUP,ncol=5,
+labeller = labeller(LASTGROUP=c("1"= "Site Class 1",
+                                           "2"= "Site Class 2",
+                                           "3" ="Site Class 3",
+                                           "4" ="Site Class 4",
+                                           "5" ="Site Class 5")))+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = " ")+
+  scale_color_manual(values = c("#E41A1C","#4DAF4A","#377EB8" ),
+                     labels = c("Potential productivity","Promotion space","Realized productivity"))+
+  # scale_color_discrete(labels = c("Promotion productivity","Potential space","Realized productivity"))
+theme_bw()
+
+###---------Type 4----------#######
+forestData_type4<-read.xlsx("C:\\Users\\dell\\Desktop\\type_4.xlsx",sheet = 1)
+forestData_type4 <- class.plot(forestData_type4, model = "Richards",
+                               interval = 5, number = 5, maxiter=1000,
+                               H_start=c(a=10,b=0.05,c=0.7),
+                               BA_start = c(a=80,b=0.0001,c=10,d=0.1),
+                               Bio_start=c(a=380,b=0.0001,c=12,d=0.1))
+summary(forestData_type4)
+# Parameters of model
+T4_Hmodel_Parameters <- forestData_type4$output$H
+T4_Hmodel_Parameters
+T4_BAmodel_Parameters <- forestData_type4$output$BA
+T4_BAmodel_Parameters
+T4_BIOmodel_Parameters <- forestData_type4$output$Bio
+T4_BIOmodel_Parameters
+
+#---Tree-height classification of type4
+Haa <- as.numeric(coef(forestData_type4$Hmodel$model)[,1])
+Hbb <- as.numeric(coef(forestData_type4$Hmodel$model)[,2])
+Hcc <- as.numeric(coef(forestData_type4$Hmodel$model)[,3])
+esti_H<-function(TH,g,Haa,Hbb,Hcc){
+  H<-Haa[g]*(1-exp(-Hbb[g]*TH))^Hcc[g]+1.3
+  return (H)
+}
+TH<-seq(min(forestData_type4$Input$AGE),max(forestData_type4$Input$AGE,0.5))
+H1<-esti_H(TH,1,Haa,Hbb,Hcc)
+H2<-esti_H(TH,2,Haa,Hbb,Hcc)
+H3<-esti_H(TH,3,Haa,Hbb,Hcc)
+H4<-esti_H(TH,4,Haa,Hbb,Hcc)
+H5<-esti_H(TH,5,Haa,Hbb,Hcc)
+# Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5)
+Hdata1 <- data.frame(TH=TH,H1=H1,H2=H2,H3=H3,H4=H4,H5=H5) %>%
+  pivot_longer(cols = c(H1,H2,H3,H4,H5), names_to = "LASTGROUP", values_to = "H")%>%
+  select(TH,LASTGROUP,H)
+# dev.new()
+Hdata2 <- forestData_type4$Input
+P_4_H <- ggplot(Hdata2, aes(x = AGE, y = H, color=factor(LASTGROUP))) +
+  geom_point(size = 1.2, show.legend = F) + 
+  geom_line(data = Hdata1,aes(x = TH, y = H, group = LASTGROUP), 
+            size=1,show.legend = F)+
+  labs(x = "Age(year)", y = "Height(m)",color = "Site Class") +
+  scale_color_manual(values = colors2)+
+  theme_bw()
+
+#---BA MODEL of type4
+esti_BA<-function(TBA,g,BAaa,BAbb,BAcc,BAdd){
+  BA<-BAaa[g]*(1-exp(-BAbb[g]*(S/1000)^BAcc[g]*TBA))^BAdd[g]
+  return (BA)
+}
+S <- 1500
+BAaa <- as.numeric(coef(forestData_type4$BAmodel$model)[,1])
+BAbb <- as.numeric(coef(forestData_type4$BAmodel$model)[,2])
+BAcc <- as.numeric(coef(forestData_type4$BAmodel$model)[,3])
+BAdd <- as.numeric(coef(forestData_type4$BAmodel$model)[,4])
+TBA<-seq(min(forestData_type4$Input$AGE),max(forestData_type4$Input$AGE,0.5))
+BA1<-esti_BA(TBA,1,BAaa,BAbb,BAcc,BAdd)
+BA2<-esti_BA(TBA,2,BAaa,BAbb,BAcc,BAdd)
+BA3<-esti_BA(TBA,3,BAaa,BAbb,BAcc,BAdd)
+BA4<-esti_BA(TBA,4,BAaa,BAbb,BAcc,BAdd)
+BA5<-esti_BA(TBA,5,BAaa,BAbb,BAcc,BAdd)
+BAdata1 <- data.frame(TBA=TBA,BA1=BA1,BA2=BA2,BA3=BA3,BA4=BA4,BA5=BA5) %>%
+  pivot_longer(cols = c(BA1,BA2,BA3,BA4,BA5), names_to = "LASTGROUP", values_to = "BA")%>%
+  select(TBA,LASTGROUP,BA)
+# dev.new()
+P_4_BA <- ggplot()+geom_line(data = BAdata1,aes(x = TBA, y = BA, color = LASTGROUP), 
+                             size=1,show.legend = F)+
+  labs(x = "Age(Year)", y = expression(paste("Basal area at breast-height( ",m^2,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors2,labels = c("1","2","3","4","5"))+
+  theme_bw()
+
+
+#---Bio_model Richards of type4
+esti_Bio<-function(TBIO, g,BIOaa,BIObb,BIOcc,BIOdd){
+  Bio<-BIOaa[g]*(1-exp(-BIObb[g]*(S/1000)^BIOcc[g]*TBIO))^BIOdd[g]
+  return (Bio)
+}
+S <- 1500
+BIOaa <- as.numeric(coef(forestData_type4$Biomodel$model)[,1])
+BIObb <- as.numeric(coef(forestData_type4$Biomodel$model)[,2])
+BIOcc <- as.numeric(coef(forestData_type4$Biomodel$model)[,3])
+BIOdd <- as.numeric(coef(forestData_type4$Biomodel$model)[,4])
+TBIO<-seq(min(forestData_type4$Input$AGE),max(forestData_type4$Input$AGE,0.5))
+BIO1<-esti_Bio(TBIO,1,BIOaa,BIObb,BIOcc,BIOdd)
+BIO2<-esti_Bio(TBIO,2,BIOaa,BIObb,BIOcc,BIOdd)
+BIO3<-esti_Bio(TBIO,3,BIOaa,BIObb,BIOcc,BIOdd)
+BIO4<-esti_Bio(TBIO,4,BIOaa,BIObb,BIOcc,BIOdd)
+BIO5<-esti_Bio(TBIO,5,BIOaa,BIObb,BIOcc,BIOdd)
+TBIO1 <- data.frame(TBIO=TBIO,BIO1=BIO1,BIO2=BIO2,BIO3=BIO3,BIO4=BIO4,BIO5=BIO5) %>%
+  pivot_longer(cols = c(BIO1,BIO2,BIO3,BIO4,BIO5), names_to = "LASTGROUP", values_to = "BIO")%>%
+  select(TBIO,LASTGROUP,BIO)
+P_4_BIO <- ggplot()+geom_line(data = TBIO1,aes(x = TBIO, y = BIO, color = LASTGROUP), 
+                              size=1,show.legend = TRUE)+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = "Site Class")+
+  scale_color_manual(values = colors2,labels = c("1","2","3","4","5"))+
+  theme_bw()
+dev.new()
+require(cowplot)
+plot_grid(P_3_H,P_3_BA,P_3_BIO, P_4_H,P_4_BA,P_4_BIO,
+          rel_widths = c(1, 1, 1.3),nrow =2,ncol=3) #Figure 3
+
+# Calculated potential productivity of type4
+forestData_type4 <- potential.productivity(forestData_type4, code=1,
+                                           age.min=5,age.max=45,
+                                           left=0.05, right=100,
+                                           e=1e-05, maxiter = 50) 
+# Calculated potential productivity of type4
+forestData_type4 <- realized.productivity(forestData_type4, left=0.05, right=100)
+## Calculated potential space of type4
+potential_data_type4 <- forestData_type4$potential.productivity
+potential_data_type4$jion_value <- paste0(potential_data_type4$LASTGROUP, "_", potential_data_type4$AGE)
+reality_data_type4 <- forestData_type4$realized.productivity
+reality_data_type4$jion_value <- paste0(reality_data_type4$LASTGROUP, "_", reality_data_type4$AGE)
+forestData_last4 <- inner_join(reality_data_type4,potential_data_type4, by="jion_value")
+forestData_last4$potential <- forestData_last4$Max_MI-forestData_last4$VI
+forestData_last4 <- rename(forestData_last4,"AGE"="AGE.x","LASTGROUP"="LASTGROUP.x")
+
+## #Figure 4 of type4
+dataT4 <- select(forestData_last4,AGE,Max_MI,VI,potential,LASTGROUP)
+T4_ALLBIO <- dataT4%>%pivot_longer(cols = c(Max_MI,VI,potential), names_to = "LASTGROUP2", values_to = "BIO")
+PT4_ALLBIO <- ggplot() +
+  geom_line(data=T4_ALLBIO,aes(x = AGE, y = BIO, color=LASTGROUP2),size=1.1,show.legend = T)+
+  geom_line(data=filter(T4_ALLBIO,LASTGROUP2=="Max_MI"),aes(x = AGE, y = BIO, color=LASTGROUP2),size=1.4)+
+  geom_point(data = filter(T4_ALLBIO,LASTGROUP2!="Max_MI"),
+             aes(x = AGE, y = BIO, color=LASTGROUP2),size =1.1, show.legend = F) +
+  facet_wrap(~LASTGROUP,ncol=5,
+labeller = labeller(LASTGROUP=c("1"= "Site Class 1",
+                                        "2"= "Site Class 2",
+                                        "3" ="Site Class 3",
+                                        "4" ="Site Class 4",
+                                        "5" ="Site Class 5")))+
+  labs(x = "Age(Year)", y = expression(paste("Biomass( ",t,"/",hm^2,")")),color = " ")+
+  scale_color_viridis_d()+
+  scale_color_manual(values = c("#E41A1C","#4DAF4A","#377EB8" ),
+                     labels = c("Potential productivity","Promotion space","Realized productivity"))+
+  theme_bw()
+dev.new()
+require(cowplot)
+plot_grid(PT3_ALLBIO,PT4_ALLBIO,nrow =2) #Figure 4
